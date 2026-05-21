@@ -33,6 +33,8 @@ export default function App() {
   const [reportId, setReportId] = useState('RPT-000001');
   const [toast, setToast] = useState({ message: '', isError: false });
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [showSavedModal, setShowSavedModal] = useState(false);
   const formRef = useRef(null);
 
   // Form Fields State
@@ -246,13 +248,13 @@ export default function App() {
     };
 
     try {
-      showToast("Saving intervention data...");
+      showToast(isSaved ? "Updating intervention data..." : "Saving intervention data...");
 
-      // 1. Save to Supabase (if connected)
+      // 1. Save / Upsert to Supabase (if connected)
       if (isSupabaseConfigured() && supabase) {
         const { error } = await supabase
           .from('reports')
-          .insert({
+          .upsert({
             report_id: reportId,
             client_name: clientName,
             intervention_date: interventionDate,
@@ -263,39 +265,40 @@ export default function App() {
         if (error) throw error;
       }
 
-      // 2. Save locally
+      // 2. Save locally without duplicates
       const existingReports = JSON.parse(localStorage.getItem('hitech_reports_list') || '[]');
-      localStorage.setItem('hitech_reports_list', JSON.stringify([payload, ...existingReports]));
+      const filteredReports = existingReports.filter(r => r.report_id !== reportId);
+      localStorage.setItem('hitech_reports_list', JSON.stringify([payload, ...filteredReports]));
 
-      // 3. Increment ID
+      // 3. Increment ID (in localStorage configuration, so the next reload increments it)
       const currentNum = parseInt(reportId.replace('RPT-', ''), 10);
       localStorage.setItem('hiTechReportId', currentNum + 1);
 
-      showToast("Saved successfully! Opening print window...");
+      showToast(isSaved ? "Report updated! Opening print window..." : "Saved successfully! Opening print window...");
+      setIsSaved(true);
       
       // 4. Trigger print PDF download/preview dialog
       triggerPrintFlow(() => {
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
+        setShowSavedModal(true);
       });
 
     } catch (err) {
       console.error("Supabase write error (saving locally):", err);
-      showToast("Database offline! Saved locally & printing...", true);
+      showToast(isSaved ? "Database offline! Updated locally & printing..." : "Database offline! Saved locally & printing...", true);
       
-      // Save locally anyway
+      // Save locally anyway without duplicates
       const existingReports = JSON.parse(localStorage.getItem('hitech_reports_list') || '[]');
-      localStorage.setItem('hitech_reports_list', JSON.stringify([payload, ...existingReports]));
+      const filteredReports = existingReports.filter(r => r.report_id !== reportId);
+      localStorage.setItem('hitech_reports_list', JSON.stringify([payload, ...filteredReports]));
 
       const currentNum = parseInt(reportId.replace('RPT-', ''), 10);
       localStorage.setItem('hiTechReportId', currentNum + 1);
 
+      setIsSaved(true);
+
       // Trigger print flow anyway
       triggerPrintFlow(() => {
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
+        setShowSavedModal(true);
       });
     }
   };
@@ -322,7 +325,7 @@ export default function App() {
       
       {/* Toast Notification Box */}
       {toast.message && (
-        <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg shadow-xl text-xs font-bold font-mono tracking-wide uppercase border animate-slide-in flex items-center gap-2 ${
+        <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg shadow-xl text-xs font-bold font-mono tracking-wide uppercase border animate-slide-in flex items-center gap-2 print:hidden ${
           toast.isError 
             ? 'bg-red-500/95 border-red-400 text-white' 
             : 'bg-primary/95 border-primary/50 text-white'
@@ -360,6 +363,47 @@ export default function App() {
                 className="px-4 py-1.5 rounded bg-red-500 hover:bg-red-600 text-xs font-semibold text-white transition-colors shadow-sm focus:outline-none"
               >
                 Reset Fields
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Premium Report Saved / Edit Confirmation Modal */}
+      {showSavedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 print:hidden">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4 animate-scale-up">
+            <div className="flex items-center gap-3 text-emerald-500">
+              <span className="text-2xl">🎉</span>
+              <h3 className="text-base font-bold text-slate-900 uppercase tracking-wide font-mono">Report Saved!</h3>
+            </div>
+            
+            <div className="space-y-2">
+              <p className="text-xs text-slate-600 leading-normal">
+                Intervention report <strong className="font-mono text-primary">{reportId}</strong> has been successfully uploaded to the database and cached locally.
+              </p>
+              <p className="text-xs text-slate-500 leading-normal">
+                If the printed PDF is correct, click <strong>Finalize &amp; Start New</strong> to reset the form. If you cancelled the print window or need to change details, click <strong>Keep Editing</strong>.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
+              <button 
+                type="button" 
+                onClick={() => setShowSavedModal(false)} 
+                className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors focus:outline-none cursor-pointer"
+              >
+                ✏️ Keep Editing / Correct Form
+              </button>
+              <button 
+                type="button" 
+                onClick={() => {
+                  setShowSavedModal(false);
+                  window.location.reload();
+                }} 
+                className="px-5 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-xs font-bold text-white transition-all shadow-md shadow-emerald-500/20 focus:outline-none cursor-pointer"
+              >
+                ✅ Finalize &amp; Start New
               </button>
             </div>
           </div>
@@ -679,7 +723,7 @@ export default function App() {
                 onClick={handleSaveAndPrint} 
                 className="px-8 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm shadow-md shadow-blue-500/20 transition-all flex items-center gap-2 hover:scale-[1.01] active:scale-[0.99] focus:outline-none cursor-pointer"
               >
-                <span>💾 Save as PDF</span>
+                <span>💾 {isSaved ? 'Update & Re-Print' : 'Save as PDF'}</span>
               </button>
             </div>
             
