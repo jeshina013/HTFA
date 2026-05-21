@@ -2,9 +2,22 @@ import { useRef, useState, useEffect } from 'react';
 
 export default function SignaturePad({ title, onClear }) {
   const canvasRef = useRef(null);
+  const previewRef = useRef(null);
   const [drawing, setDrawing] = useState(false);
   const [hasDrawn, setHasDrawn] = useState(false);
   const hasDrawnRef = useRef(false);
+
+  const updatePreview = () => {
+    const canvas = canvasRef.current;
+    const preview = previewRef.current;
+    if (canvas && preview) {
+      if (hasDrawnRef.current) {
+        preview.src = canvas.toDataURL('image/png');
+      } else {
+        preview.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+      }
+    }
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -47,8 +60,11 @@ export default function SignaturePad({ title, onClear }) {
         const img = new Image();
         img.onload = () => {
           ctx.drawImage(img, 0, 0, rect.width, rect.height);
+          updatePreview();
         };
         img.src = savedDataUrl;
+      } else {
+        updatePreview();
       }
     };
 
@@ -101,7 +117,10 @@ export default function SignaturePad({ title, onClear }) {
     ctx.stroke();
   };
 
-  const handlePointerUp = () => setDrawing(false);
+  const handlePointerUp = () => {
+    setDrawing(false);
+    updatePreview();
+  };
 
   const clearSignature = () => {
     const canvas = canvasRef.current;
@@ -109,6 +128,7 @@ export default function SignaturePad({ title, onClear }) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     setHasDrawn(false);
     hasDrawnRef.current = false;
+    updatePreview();
     if (onClear) onClear();
   };
 
@@ -151,7 +171,12 @@ export default function SignaturePad({ title, onClear }) {
         )}
 
         <div aria-hidden="true" className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent"></div>
-        <img className="sig-print-preview hidden w-full h-full object-contain" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Signature print preview" />
+        <img
+          ref={previewRef}
+          className="sig-print-preview hidden w-full h-full object-contain"
+          src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+          alt="Signature print preview"
+        />
       </div>
     </div>
   );

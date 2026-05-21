@@ -31,6 +31,7 @@ export default function App() {
   const [reportId, setReportId] = useState('RPT-000001');
   const [toast, setToast] = useState({ message: '', isError: false });
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('idle');
   const formRef = useRef(null);
 
   // Form Fields State
@@ -174,37 +175,17 @@ export default function App() {
     setIsClearModalOpen(true);
   };
 
-  // Convert Signatures & Trigger Print View
+  // Convert Signatures & Trigger Print View (Synchronous to prevent Safari block)
   const triggerPrintFlow = (onDone) => {
     document.title = `HiTech_Intervention_Report_${reportId}`;
-
-    const canvases = document.querySelectorAll('.signature-canvas');
-    const previews = document.querySelectorAll('.sig-print-preview');
-    
-    const promises = Array.from(canvases).map((canvas, idx) => {
-      const preview = previews[idx];
-      if (!preview) return Promise.resolve();
-      
-      return new Promise((resolve) => {
-        preview.onload = resolve;
-        preview.onerror = resolve; 
-        preview.src = canvas.toDataURL('image/png');
-      });
-    });
-
-    Promise.all(promises).then(() => {
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          window.print();
-          if (onDone) onDone();
-        }, 150);
-      });
-    });
+    window.print();
+    if (onDone) onDone();
   };
 
-  // Save Report (Supabase + LocalStorage Fallback) and instantly print PDF
-  const handleSaveAndPrint = async (e) => {
+  // Step 1: Save Report to Database and LocalStorage (no print trigger here)
+  const handleSaveReport = async (e) => {
     if (e) e.preventDefault();
+    setSaveStatus('saving');
     
     // Gather checkboxes
     const selectedEquipment = [];
@@ -279,20 +260,12 @@ export default function App() {
       const currentNum = parseInt(reportId.replace('RPT-', ''), 10);
       localStorage.setItem('hiTechReportId', currentNum + 1);
 
-      showToast("Saved successfully! Opening print window...");
-      
-      // 4. Trigger print PDF download/preview dialog with buffer delays for iOS Safari
-      setTimeout(() => {
-        triggerPrintFlow(() => {
-          setTimeout(() => {
-            window.location.reload();
-          }, 400);
-        });
-      }, 400);
+      showToast("Saved successfully! Click 'Save as PDF' below.");
+      setSaveStatus('saved');
 
     } catch (err) {
       console.error("Supabase write error (saving locally):", err);
-      showToast("Database offline! Saved locally & printing...", true);
+      showToast("Database offline! Saved locally. Click 'Save as PDF' below.", true);
       
       // Save locally anyway without duplicates
       const existingReports = JSON.parse(localStorage.getItem('hitech_reports_list') || '[]');
@@ -302,14 +275,29 @@ export default function App() {
       const currentNum = parseInt(reportId.replace('RPT-', ''), 10);
       localStorage.setItem('hiTechReportId', currentNum + 1);
 
-      // Trigger print flow anyway with buffer delays for iOS Safari
+      setSaveStatus('saved');
+    }
+  };
+
+  // Step 2: Synchronous PDF/Print Trigger (direct user gesture, never blocked by iOS Safari)
+  const handleDirectPrint = (e) => {
+    if (e) e.preventDefault();
+    triggerPrintFlow(() => {
       setTimeout(() => {
-        triggerPrintFlow(() => {
-          setTimeout(() => {
-            window.location.reload();
-          }, 400);
-        });
-      }, 400);
+        window.location.reload();
+      }, 500);
+    });
+  };
+
+  // Form Submit interceptor
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    if (saveStatus === 'saved') {
+      handleDirectPrint(e);
+    } else {
+      if (saveStatus !== 'saving') {
+        handleSaveReport(e);
+      }
     }
   };
 
@@ -461,7 +449,7 @@ export default function App() {
               </div>
             </div>
 
-            <form ref={formRef} className="space-y-3 print:space-y-1.5 form-grid relative z-10" onSubmit={handleSaveAndPrint}>
+            <form ref={formRef} className="space-y-3 print:space-y-1.5 form-grid relative z-10" onSubmit={handleFormSubmit}>
               
               {/* Client & Technician Details (Side by Side) */}
               <div className="grid grid-cols-2 gap-4 print:grid-cols-2 print:gap-3">
@@ -749,21 +737,45 @@ export default function App() {
 
             {/* Consolidated Premium ActionBar */}
             <div id="action-bar" role="toolbar" className="flex flex-wrap justify-end gap-3 pt-4 border-t border-slate-200 print:hidden relative z-10">
-              <button 
-                type="button" 
-                onClick={confirmClear} 
-                className="px-5 py-2 rounded-xl border border-slate-300 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-all focus:outline-none cursor-pointer"
-              >
-                Clear Form
-              </button>
-              
-              <button 
-                type="button" 
-                onClick={handleSaveAndPrint} 
-                className="px-8 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm shadow-md shadow-blue-500/20 transition-all flex items-center gap-2 hover:scale-[1.01] active:scale-[0.99] focus:outline-none cursor-pointer"
-              >
-                <span>💾 Save as PDF</span>
-              </button>
+              {saveStatus === 'saved' ? (
+                <>
+                  <button 
+                    type="button" 
+                    onClick={() => setSaveStatus('idle')} 
+                    className="px-5 py-2 rounded-xl border border-slate-300 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-all focus:outline-none cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
+                  >
+                    ✏️ Keep Editing
+                  </button>
+                  
+                  <button 
+                    type="button" 
+                    onClick={handleDirectPrint} 
+                    className="px-8 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm shadow-md shadow-emerald-500/20 transition-all flex items-center gap-2 hover:scale-[1.01] active:scale-[0.99] focus:outline-none cursor-pointer"
+                  >
+                    <span>🖨️ Save as PDF</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button 
+                    type="button" 
+                    onClick={confirmClear} 
+                    disabled={saveStatus === 'saving'}
+                    className="px-5 py-2 rounded-xl border border-slate-300 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-all focus:outline-none cursor-pointer hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+                  >
+                    Clear Form
+                  </button>
+                  
+                  <button 
+                    type="button" 
+                    onClick={handleSaveReport} 
+                    disabled={saveStatus === 'saving'}
+                    className="px-8 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm shadow-md shadow-blue-500/20 transition-all flex items-center gap-2 hover:scale-[1.01] active:scale-[0.99] focus:outline-none cursor-pointer disabled:opacity-50"
+                  >
+                    <span>{saveStatus === 'saving' ? '⏳ Saving...' : '💾 Save Report'}</span>
+                  </button>
+                </>
+              )}
             </div>
             
           </div>
