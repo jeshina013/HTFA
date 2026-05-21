@@ -6,15 +6,15 @@ export default function SignaturePad({ title, onClear }) {
   const [drawing, setDrawing] = useState(false);
   const [hasDrawn, setHasDrawn] = useState(false);
   const hasDrawnRef = useRef(false);
+  const [dataUrl, setDataUrl] = useState('');
 
   const updatePreview = () => {
     const canvas = canvasRef.current;
-    const preview = previewRef.current;
-    if (canvas && preview) {
+    if (canvas) {
       if (hasDrawnRef.current) {
-        preview.src = canvas.toDataURL('image/png');
+        setDataUrl(canvas.toDataURL('image/png'));
       } else {
-        preview.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+        setDataUrl('');
       }
     }
   };
@@ -174,7 +174,7 @@ export default function SignaturePad({ title, onClear }) {
         <img
           ref={previewRef}
           className="sig-print-preview hidden w-full h-full object-contain"
-          src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+          src={dataUrl || "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"}
           alt="Signature print preview"
         />
       </div>
