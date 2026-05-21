@@ -4,26 +4,74 @@ export default function SignaturePad({ title, onClear }) {
   const canvasRef = useRef(null);
   const [drawing, setDrawing] = useState(false);
   const [hasDrawn, setHasDrawn] = useState(false);
+  const hasDrawnRef = useRef(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
+    let currentWidth = 0;
+    let currentHeight = 0;
+
     const scaleCanvas = () => {
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
+      const newWidth = Math.round(rect.width * dpr);
+      const newHeight = Math.round(rect.height * dpr);
+
+      // Only resize and clear the canvas if the physical dimensions have actually changed
+      if (currentWidth === newWidth && currentHeight === newHeight) {
+        return;
+      }
+
+      // If dimensions changed and there's a signature, temporarily save it
+      let savedDataUrl = null;
+      if (hasDrawnRef.current) {
+        savedDataUrl = canvas.toDataURL();
+      }
+
+      canvas.width = newWidth;
+      canvas.height = newHeight;
+      currentWidth = newWidth;
+      currentHeight = newHeight;
+
       ctx.scale(dpr, dpr);
       ctx.strokeStyle = '#1F4E79'; // Primary color
       ctx.lineWidth = 2;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
+
+      // Restore drawing on resized canvas
+      if (savedDataUrl) {
+        const img = new Image();
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, rect.width, rect.height);
+        };
+        img.src = savedDataUrl;
+      }
     };
+
     scaleCanvas();
-    window.addEventListener('resize', scaleCanvas);
-    return () => window.removeEventListener('resize', scaleCanvas);
+
+    // Use ResizeObserver for accurate sizing, fallback to window resize
+    let resizeObserver = null;
+    if (window.ResizeObserver) {
+      resizeObserver = new ResizeObserver(() => {
+        scaleCanvas();
+      });
+      resizeObserver.observe(canvas.parentElement || canvas);
+    } else {
+      window.addEventListener('resize', scaleCanvas);
+    }
+
+    return () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      } else {
+        window.removeEventListener('resize', scaleCanvas);
+      }
+    };
   }, []);
 
   const getPos = (e) => {
@@ -35,6 +83,7 @@ export default function SignaturePad({ title, onClear }) {
   const handlePointerDown = (e) => {
     setDrawing(true);
     setHasDrawn(true);
+    hasDrawnRef.current = true;
     const canvas = canvasRef.current;
     canvas.setPointerCapture(e.pointerId);
     const ctx = canvas.getContext('2d');
@@ -59,7 +108,8 @@ export default function SignaturePad({ title, onClear }) {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     setHasDrawn(false);
-    if(onClear) onClear();
+    hasDrawnRef.current = false;
+    if (onClear) onClear();
   };
 
   return (

@@ -49,14 +49,14 @@ export default function AdminLogin({ onLoginSuccess }) {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-900 text-slate-100 p-4 font-sans selection:bg-primary selection:text-white">
-      
+
       {/* Premium Background Graphics */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-slate-900 to-slate-950 pointer-events-none z-0"></div>
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none"></div>
 
       <div className="w-full max-w-md bg-slate-950/70 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-2xl backdrop-blur-xl relative z-10">
-        
+
         {/* Header */}
         <div className="flex flex-col items-center text-center mb-6">
           <div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-primary to-cyan-500 flex items-center justify-center shadow-lg shadow-primary/20 mb-3">
@@ -87,10 +87,10 @@ export default function AdminLogin({ onLoginSuccess }) {
 
           <div className="flex flex-col gap-1 text-left">
             <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider">Admin Email</label>
-            <input 
-              type="email" 
-              required 
-              placeholder="admin@hitech.com" 
+            <input
+              type="email"
+              required
+              placeholder="admin@hitech.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="h-9 px-3 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-primary/80 transition-all"
@@ -99,18 +99,18 @@ export default function AdminLogin({ onLoginSuccess }) {
 
           <div className="flex flex-col gap-1 text-left">
             <label className="text-[10px] text-slate-400 font-mono uppercase tracking-wider">Password</label>
-            <input 
-              type="password" 
-              required 
-              placeholder="••••••••" 
+            <input
+              type="password"
+              required
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="h-9 px-3 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-primary/80 transition-all"
             />
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading}
             className="w-full h-10 mt-2 bg-gradient-to-r from-primary to-cyan-600 hover:from-primary/90 hover:to-cyan-600/90 text-white rounded-lg text-xs font-semibold shadow-lg shadow-primary/20 transition-all flex items-center justify-center cursor-pointer"
           >
@@ -121,7 +121,7 @@ export default function AdminLogin({ onLoginSuccess }) {
         {/* Footer info */}
         <div className="mt-6 pt-4 border-t border-slate-900 text-center">
           <span className="text-[9px] text-slate-600 font-mono uppercase tracking-widest">
-            SECURE ACCESS ONLY • BRN: C26234033
+            SECURE ACCESS ONLY •
           </span>
         </div>
 
