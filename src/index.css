@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 5mm 6mm;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide interactive elements */
+  header, nav, #action-bar, button, ::placeholder {
+    display: none !important;
+  }
+
+  /* Remove backgrounds and borders for a clean print */
+  fieldset {
+    border: 1px solid #94a3b8 !important; /* slate-400 */
+    break-inside: avoid;
+    margin-bottom: 0.25rem !important;
+    padding: 0.375rem 0.5rem !important;
+  }
+  
+  legend {
+    color: black !important;
+    font-weight: bold;
+  }
+
+  /* Force grids to display as grids on print */
+  .grid {
+    display: grid !important;
+  }
+  .grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  /* Reset layout wrapper print styling */
+  .hero {
+    display: block !important;
+    padding: 0 !important;
+  }
+
+  /* Inputs as underlines */
+  input[type="text"], input[type="number"], input[type="date"], input[type="time"], select {
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+    color: black !important;
+    border-radius: 0 !important;
+    height: 1.5rem !important;
+  }
+  
+  /* Ensure canvas doesn't print, image preview prints */
+  .signature-canvas { display: none !important; }
+  .sig-print-preview { display: block !important; }
+  .signature-box { border: 1px solid #94a3b8 !important; background: transparent !important; }
+
+  /* Minimize whitespace */
+  .form-grid {
+    gap: 0.25rem !important;
+  }
+
+  /* Hide unselected checkboxes */
+  .print-hide-unchecked:not(:has(input:checked)) {
+    display: none !important;
+  }
+}
