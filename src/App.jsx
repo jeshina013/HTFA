@@ -121,6 +121,11 @@ export default function App() {
               setReportId(`RPT-${String(nextNum).padStart(6, '0')}`);
               return;
             }
+          } else {
+            // Supabase is configured and successfully queried, but the table is empty (e.g. truncated)
+            setReportId('RPT-000001');
+            localStorage.setItem('hiTechReportId', '1');
+            return;
           }
         }
       } catch (err) {
