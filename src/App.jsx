@@ -40,8 +40,6 @@ export default function App() {
     { id: 1, desc: '', no: '', qty: 1 },
     { id: 2, desc: '', no: '', qty: 1 },
     { id: 3, desc: '', no: '', qty: 1 },
-    { id: 4, desc: '', no: '', qty: 1 },
-    { id: 5, desc: '', no: '', qty: 1 },
   ]);
   
   // Controlled fields
@@ -63,6 +61,11 @@ export default function App() {
     setToast({ message, isError });
     setTimeout(() => setToast({ message: '', isError: false }), 4000);
   };
+
+  // Set dynamic document title for correct file naming during prints
+  useEffect(() => {
+    document.title = `HiTech_Intervention_Report_${reportId}`;
+  }, [reportId]);
 
   // Auth checking on mount
   useEffect(() => {
@@ -173,7 +176,6 @@ export default function App() {
 
   // Convert Signatures & Trigger Print View
   const triggerPrintFlow = (onDone) => {
-    const originalTitle = document.title;
     document.title = `HiTech_Intervention_Report_${reportId}`;
 
     const canvases = document.querySelectorAll('.signature-canvas');
@@ -194,9 +196,8 @@ export default function App() {
       requestAnimationFrame(() => {
         setTimeout(() => {
           window.print();
-          document.title = originalTitle;
           if (onDone) onDone();
-        }, 80);
+        }, 150);
       });
     });
   };
@@ -280,10 +281,14 @@ export default function App() {
 
       showToast("Saved successfully! Opening print window...");
       
-      // 4. Trigger print PDF download/preview dialog
-      triggerPrintFlow(() => {
-        window.location.reload();
-      });
+      // 4. Trigger print PDF download/preview dialog with buffer delays for iOS Safari
+      setTimeout(() => {
+        triggerPrintFlow(() => {
+          setTimeout(() => {
+            window.location.reload();
+          }, 400);
+        });
+      }, 400);
 
     } catch (err) {
       console.error("Supabase write error (saving locally):", err);
@@ -297,10 +302,14 @@ export default function App() {
       const currentNum = parseInt(reportId.replace('RPT-', ''), 10);
       localStorage.setItem('hiTechReportId', currentNum + 1);
 
-      // Trigger print flow anyway
-      triggerPrintFlow(() => {
-        window.location.reload();
-      });
+      // Trigger print flow anyway with buffer delays for iOS Safari
+      setTimeout(() => {
+        triggerPrintFlow(() => {
+          setTimeout(() => {
+            window.location.reload();
+          }, 400);
+        });
+      }, 400);
     }
   };
 
