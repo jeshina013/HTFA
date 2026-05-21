@@ -7,7 +7,7 @@ export const COMPANY = {
 };
 
 export const SAFETY_ITEMS = [
-  'PPE Worn (Helmet, Gloves, Safety Shoes)',
+  'PPE Worn (Helmet, Safety Shoes)',
   'Area Secured Before Intervention',
   'Fire Extinguisher Available',
   'No Fuel Leakage Detected',

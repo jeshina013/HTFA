@@ -31,14 +31,18 @@ export default function App() {
   const [reportId, setReportId] = useState('RPT-000001');
   const [toast, setToast] = useState({ message: '', isError: false });
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
-  const [showSavedModal, setShowSavedModal] = useState(false);
   const formRef = useRef(null);
 
   // Form Fields State
   const [serviceType, setServiceType] = useState('');
   const [jobStatus, setJobStatus] = useState('');
-  const [parts, setParts] = useState(() => [{ id: Date.now(), desc: '', no: '', qty: 1 }]);
+  const [parts, setParts] = useState(() => [
+    { id: 1, desc: '', no: '', qty: 1 },
+    { id: 2, desc: '', no: '', qty: 1 },
+    { id: 3, desc: '', no: '', qty: 1 },
+    { id: 4, desc: '', no: '', qty: 1 },
+    { id: 5, desc: '', no: '', qty: 1 },
+  ]);
   
   // Controlled fields
   const [clientName, setClientName] = useState('');
@@ -214,6 +218,11 @@ export default function App() {
       safetyAnswers[item] = selectedRadio ? selectedRadio.value : '';
     });
 
+    // Filter out parts where both description and part number are blank to keep DB records clean
+    const filledParts = parts
+      .filter(p => p.desc.trim() !== '' || p.no.trim() !== '')
+      .map(p => ({ desc: p.desc, no: p.no, qty: p.qty }));
+
     // Build absolute form data payload
     const payload = {
       report_id: reportId,
@@ -237,13 +246,13 @@ export default function App() {
       safety_ticket: safetyAnswers,
       job_description: jobDescription,
       work_performed: workPerformed,
-      parts: parts.map(p => ({ desc: p.desc, no: p.no, qty: p.qty })),
+      parts: filledParts,
       remarks: remarks,
       saved_at: new Date().toISOString()
     };
 
     try {
-      showToast(isSaved ? "Updating intervention data..." : "Saving intervention data...");
+      showToast("Saving intervention report...");
 
       // 1. Save / Upsert to Supabase (if connected)
       if (isSupabaseConfigured() && supabase) {
@@ -269,17 +278,16 @@ export default function App() {
       const currentNum = parseInt(reportId.replace('RPT-', ''), 10);
       localStorage.setItem('hiTechReportId', currentNum + 1);
 
-      showToast(isSaved ? "Report updated! Opening print window..." : "Saved successfully! Opening print window...");
-      setIsSaved(true);
+      showToast("Saved successfully! Opening print window...");
       
       // 4. Trigger print PDF download/preview dialog
       triggerPrintFlow(() => {
-        setShowSavedModal(true);
+        window.location.reload();
       });
 
     } catch (err) {
       console.error("Supabase write error (saving locally):", err);
-      showToast(isSaved ? "Database offline! Updated locally & printing..." : "Database offline! Saved locally & printing...", true);
+      showToast("Database offline! Saved locally & printing...", true);
       
       // Save locally anyway without duplicates
       const existingReports = JSON.parse(localStorage.getItem('hitech_reports_list') || '[]');
@@ -289,11 +297,9 @@ export default function App() {
       const currentNum = parseInt(reportId.replace('RPT-', ''), 10);
       localStorage.setItem('hiTechReportId', currentNum + 1);
 
-      setIsSaved(true);
-
       // Trigger print flow anyway
       triggerPrintFlow(() => {
-        setShowSavedModal(true);
+        window.location.reload();
       });
     }
   };
@@ -364,46 +370,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Premium Report Saved / Edit Confirmation Modal */}
-      {showSavedModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 print:hidden">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4 animate-scale-up">
-            <div className="flex items-center gap-3 text-emerald-500">
-              <span className="text-2xl">🎉</span>
-              <h3 className="text-base font-bold text-slate-900 uppercase tracking-wide font-mono">Report Saved!</h3>
-            </div>
-            
-            <div className="space-y-2">
-              <p className="text-xs text-slate-600 leading-normal">
-                Intervention report <strong className="font-mono text-primary">{reportId}</strong> has been successfully uploaded to the database and cached locally.
-              </p>
-              <p className="text-xs text-slate-500 leading-normal">
-                If the printed PDF is correct, click <strong>Finalize &amp; Start New</strong> to reset the form. If you cancelled the print window or need to change details, click <strong>Keep Editing</strong>.
-              </p>
-            </div>
 
-            <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
-              <button 
-                type="button" 
-                onClick={() => setShowSavedModal(false)} 
-                className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors focus:outline-none cursor-pointer"
-              >
-                ✏️ Keep Editing / Correct Form
-              </button>
-              <button 
-                type="button" 
-                onClick={() => {
-                  setShowSavedModal(false);
-                  window.location.reload();
-                }} 
-                className="px-5 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-xs font-bold text-white transition-all shadow-md shadow-emerald-500/20 focus:outline-none cursor-pointer"
-              >
-                ✅ Finalize &amp; Start New
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Main Header */}
       <Header reportId={reportId} userEmail={user.email} onSignOut={handleSignOut} />
@@ -441,73 +408,86 @@ export default function App() {
                 <div className="bg-primary/5 text-primary border border-primary/20 font-mono text-xs md:text-sm font-bold px-2.5 py-1 rounded shadow-sm tracking-wider uppercase">
                   Report No: <span className="font-extrabold">{reportId}</span>
                 </div>
-                <div className="text-[9px] md:text-[10px] text-slate-400 font-mono font-semibold tracking-wide">
+                <div className="text-[9px] md:text-[10px] text-slate-400 font-mono font-semibold tracking-wide uppercase">
                   TECHNICAL INTERVENTION REPORT
+                </div>
+                
+                {/* Compact Date of Intervention & Time fields (No Textboxes style) */}
+                <div className="flex flex-col items-end text-right pt-1.5 border-t border-slate-100 print:border-slate-300 w-full font-mono text-slate-600">
+                  <div className="flex items-center gap-1 text-[11px] font-bold">
+                    <span className="text-[9px] text-slate-400 uppercase">Date:</span>
+                    <input 
+                      type="date" 
+                      value={interventionDate} 
+                      onChange={(e) => setInterventionDate(e.target.value)} 
+                      className="bg-transparent border-none p-0 h-auto text-[11px] text-slate-600 font-bold focus:outline-none cursor-pointer w-[110px] text-right" 
+                    />
+                  </div>
+                  
+                  <div className="flex items-center gap-1 text-[10px] font-bold mt-0.5">
+                    <span className="text-[9px] text-slate-400 uppercase">Time:</span>
+                    <div className="flex items-center gap-0.5">
+                      <input 
+                        type="time" 
+                        value={timeIn} 
+                        onChange={(e) => setTimeIn(e.target.value)} 
+                        className="bg-transparent border-none p-0 h-auto text-[10px] text-slate-600 font-bold focus:outline-none cursor-pointer w-[42px] text-right print:hidden" 
+                      />
+                      <span className="hidden print:inline text-[10px] text-slate-900 font-mono">
+                        {formatTime(timeIn)}
+                      </span>
+                      <span className="text-slate-400 font-normal mx-0.5">-</span>
+                      <input 
+                        type="time" 
+                        value={timeOut} 
+                        onChange={(e) => setTimeOut(e.target.value)} 
+                        className="bg-transparent border-none p-0 h-auto text-[10px] text-slate-600 font-bold focus:outline-none cursor-pointer w-[42px] text-right print:hidden" 
+                      />
+                      <span className="hidden print:inline text-[10px] text-slate-900 font-mono">
+                        {formatTime(timeOut)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-             <form ref={formRef} className="space-y-3 print:space-y-1.5 form-grid relative z-10" onSubmit={handleSaveAndPrint}>
+            <form ref={formRef} className="space-y-3 print:space-y-1.5 form-grid relative z-10" onSubmit={handleSaveAndPrint}>
               
-              {/* Sleek Metadata Row above details */}
-              <div className="grid grid-cols-3 gap-4 bg-slate-50 p-2.5 rounded-lg border border-slate-200 print:bg-transparent print:border-slate-300 print:p-1.5 print:gap-2 mb-1">
-                <div className="flex flex-col gap-0.5">
-                  <label htmlFor="date-intervention" className="text-[9px] text-slate-500 font-mono print:text-black leading-none font-bold uppercase tracking-wider">Date of Intervention</label>
-                  <input id="date-intervention" name="intervention_date" type="date" value={interventionDate} onChange={(e) => setInterventionDate(e.target.value)} className="h-7 px-2 rounded bg-white border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-primary print:bg-transparent print:border-b print:border-slate-300 print:text-black print:rounded-none w-full cursor-pointer print:h-6 print:py-0 font-medium" />
-                </div>
-                
-                <div className="flex flex-col gap-0.5">
-                  <label htmlFor="time-in" className="text-[9px] text-slate-500 font-mono print:text-black leading-none font-bold uppercase tracking-wider">Time In</label>
-                  <div className="flex items-center w-full min-h-[1.75rem] print:min-h-0">
-                    <input id="time-in" name="time_in" type="time" value={timeIn} onChange={(e) => setTimeIn(e.target.value)} className="h-7 px-2 rounded bg-white border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-primary print:hidden w-full cursor-pointer" />
-                    <span className="hidden print:inline-block font-bold text-xs text-slate-900 font-mono border-b border-slate-300 pb-0.5 w-full">
-                      {formatTime(timeIn)}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col gap-0.5">
-                  <label htmlFor="time-out" className="text-[9px] text-slate-500 font-mono print:text-black leading-none font-bold uppercase tracking-wider">Time Out</label>
-                  <div className="flex items-center w-full min-h-[1.75rem] print:min-h-0">
-                    <input id="time-out" name="time_out" type="time" value={timeOut} onChange={(e) => setTimeOut(e.target.value)} className="h-7 px-2 rounded bg-white border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-primary print:hidden w-full cursor-pointer" />
-                    <span className="hidden print:inline-block font-bold text-xs text-slate-900 font-mono border-b border-slate-300 pb-0.5 w-full">
-                      {formatTime(timeOut)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
               {/* Client & Technician Details (Side by Side) */}
               <div className="grid grid-cols-2 gap-4 print:grid-cols-2 print:gap-3">
                 {/* Client / Site Information */}
-                <fieldset className="rounded-lg border border-slate-200 bg-white p-3 print:p-2 print:border-slate-400 print:bg-transparent flex flex-col gap-1.5 print:gap-1">
+                <fieldset className="rounded-lg border border-slate-200 bg-white p-3 print:p-2 print:border-slate-400 print:bg-transparent flex flex-col gap-2 print:gap-1.5 justify-center">
                   <legend className="px-2 text-[10px] md:text-xs font-mono font-bold uppercase tracking-widest text-primary print:text-black">
                     Client / Site Information
                   </legend>
-                  <div className="flex flex-col gap-0.5">
-                    <label htmlFor="client-name" className="text-[10px] text-slate-500 font-mono print:text-black leading-none">Name of Client</label>
-                    <input id="client-name" name="client_name" type="text" value={clientName} onChange={(e) => setClientName(e.target.value)} className="h-7 px-2 rounded bg-white border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-primary print:bg-transparent print:border-b print:border-slate-300 print:text-black print:rounded-none w-full" />
+                  
+                  <div className="flex items-center gap-1.5 border-b border-slate-100 pb-1 print:border-slate-300">
+                    <label htmlFor="client-name" className="text-[10px] text-slate-500 font-mono print:text-black font-bold uppercase tracking-wider whitespace-nowrap shrink-0">Name of Client:</label>
+                    <input id="client-name" name="client_name" type="text" value={clientName} onChange={(e) => setClientName(e.target.value)} className="flex-1 h-5 px-1 bg-transparent border-none text-xs text-slate-900 focus:outline-none print:text-black" />
                   </div>
-                  <div className="flex flex-col gap-0.5">
-                    <label htmlFor="site-address" className="text-[10px] text-slate-500 font-mono print:text-black leading-none">Site / Address</label>
-                    <input id="site-address" name="site_address" type="text" value={siteAddress} onChange={(e) => setSiteAddress(e.target.value)} className="h-7 px-2 rounded bg-white border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-primary print:bg-transparent print:border-b print:border-slate-300 print:text-black print:rounded-none w-full" />
+
+                  <div className="flex items-center gap-1.5 border-b border-slate-100 pb-1 print:border-slate-300">
+                    <label htmlFor="site-address" className="text-[10px] text-slate-500 font-mono print:text-black font-bold uppercase tracking-wider whitespace-nowrap shrink-0">Site / Address:</label>
+                    <input id="site-address" name="site_address" type="text" value={siteAddress} onChange={(e) => setSiteAddress(e.target.value)} className="flex-1 h-5 px-1 bg-transparent border-none text-xs text-slate-900 focus:outline-none print:text-black" />
                   </div>
-                  <div className="flex flex-col gap-0.5">
-                    <label htmlFor="client-phone" className="text-[10px] text-slate-500 font-mono print:text-black leading-none">Tel / Mobile</label>
-                    <input id="client-phone" name="client_phone" type="text" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} className="h-7 px-2 rounded bg-white border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-primary print:bg-transparent print:border-b print:border-slate-300 print:text-black print:rounded-none w-full" />
+
+                  <div className="flex items-center gap-1.5 border-b border-slate-100 pb-1 print:border-slate-300">
+                    <label htmlFor="client-phone" className="text-[10px] text-slate-500 font-mono print:text-black font-bold uppercase tracking-wider whitespace-nowrap shrink-0">Tel / Mobile:</label>
+                    <input id="client-phone" name="client_phone" type="text" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} className="flex-1 h-5 px-1 bg-transparent border-none text-xs text-slate-900 focus:outline-none print:text-black" />
                   </div>
                 </fieldset>
 
                 {/* Right Column: Technician Details, Service Type, and Job Status */}
                 <div className="flex flex-col justify-between gap-3 print:gap-1.5">
                   {/* Technician Details */}
-                  <fieldset className="rounded-lg border border-slate-200 bg-white p-3 print:p-2 print:border-slate-400 print:bg-transparent flex-1 flex flex-col justify-center">
+                  <fieldset className="rounded-lg border border-slate-200 bg-white p-3 print:p-2 print:border-slate-400 print:bg-transparent flex-1 flex flex-col justify-center gap-2">
                     <legend className="px-2 text-[10px] md:text-xs font-mono font-bold uppercase tracking-widest text-primary print:text-black">
                       Technician Details
                     </legend>
-                    <div className="flex flex-col gap-0.5">
-                      <label htmlFor="technician-name" className="text-[10px] text-slate-500 font-mono print:text-black leading-none">Technician Name</label>
-                      <input id="technician-name" name="technician_name" type="text" value={technicianName} onChange={(e) => setTechnicianName(e.target.value)} className="h-7 px-2 rounded bg-white border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-primary print:bg-transparent print:border-b print:border-slate-300 print:text-black print:rounded-none w-full" />
+                    <div className="flex items-center gap-1.5 border-b border-slate-100 pb-1 print:border-slate-300">
+                      <label htmlFor="technician-name" className="text-[10px] text-slate-500 font-mono print:text-black font-bold uppercase tracking-wider whitespace-nowrap shrink-0">Technician Name:</label>
+                      <input id="technician-name" name="technician_name" type="text" value={technicianName} onChange={(e) => setTechnicianName(e.target.value)} className="flex-1 h-5 px-1 bg-transparent border-none text-xs text-slate-900 focus:outline-none print:text-black" />
                     </div>
                   </fieldset>
 
@@ -625,18 +605,17 @@ export default function App() {
                   <div className="flex-1 flex flex-col w-full relative">
                     <textarea 
                       name="job_description" 
-                      maxLength={500}
+                      maxLength={255}
                       value={jobDescription}
                       onChange={(e) => setJobDescription(e.target.value)}
-                      className="flex-1 w-full px-2 py-1 rounded-md resize-none bg-white border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-primary print:hidden min-h-[4.5rem]" 
+                      className="w-full h-[72px] px-2 py-1 rounded-md resize-none overflow-hidden bg-white border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-primary print:hidden" 
                       placeholder="Enter job description..."
-                      rows={3}
                     ></textarea>
-                    <div className="hidden print:block text-[11px] text-slate-900 font-sans whitespace-pre-wrap min-h-[4.5rem] border-b border-slate-300 pb-1">
+                    <div className="hidden print:block text-[11px] text-slate-900 font-sans whitespace-pre-wrap h-[72px] border-b border-slate-300 pb-1 overflow-hidden">
                       {jobDescription || <span className="text-slate-400 italic">No description provided.</span>}
                     </div>
                     <div className="text-[9px] text-slate-400 text-right font-mono mt-0.5 print:hidden">
-                      {jobDescription.length}/500 chars
+                      {jobDescription.length}/255 chars
                     </div>
                   </div>
                 </fieldset>
@@ -648,18 +627,17 @@ export default function App() {
                   <div className="flex-1 flex flex-col w-full relative">
                     <textarea 
                       name="work_performed" 
-                      maxLength={500}
+                      maxLength={255}
                       value={workPerformed}
                       onChange={(e) => setWorkPerformed(e.target.value)}
-                      className="flex-1 w-full px-2 py-1 rounded-md resize-none bg-white border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-primary print:hidden min-h-[4.5rem]" 
+                      className="w-full h-[72px] px-2 py-1 rounded-md resize-none overflow-hidden bg-white border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-primary print:hidden" 
                       placeholder="Enter work performed..."
-                      rows={3}
                     ></textarea>
-                    <div className="hidden print:block text-[11px] text-slate-900 font-sans whitespace-pre-wrap min-h-[4.5rem] border-b border-slate-300 pb-1">
+                    <div className="hidden print:block text-[11px] text-slate-900 font-sans whitespace-pre-wrap h-[72px] border-b border-slate-300 pb-1 overflow-hidden">
                       {workPerformed || <span className="text-slate-400 italic">No work performed recorded.</span>}
                     </div>
                     <div className="text-[9px] text-slate-400 text-right font-mono mt-0.5 print:hidden">
-                      {workPerformed.length}/500 chars
+                      {workPerformed.length}/255 chars
                     </div>
                   </div>
                 </fieldset>
@@ -671,35 +649,55 @@ export default function App() {
                   <legend className="px-2 text-[10px] md:text-xs font-mono font-bold uppercase tracking-widest text-primary print:text-black">
                     Parts / Materials Used
                   </legend>
-                  <div id="parts-rows" className="space-y-1">
-                    {parts.map((p) => (
-                      <div key={p.id} className="flex gap-1" role="group" aria-label="Part row">
-                        <input 
-                          type="text" 
-                          placeholder="Description" 
-                          value={p.desc || ''} 
-                          onChange={(e) => handlePartChange(p.id, 'desc', e.target.value)} 
-                          className="flex-1 h-7 px-2 rounded bg-white border border-slate-300 text-xs text-slate-900 print:bg-transparent print:border-b print:border-slate-300 print:text-black print:rounded-none" 
-                        />
-                        <input 
-                          type="text" 
-                          placeholder="Part #" 
-                          value={p.no || ''} 
-                          onChange={(e) => handlePartChange(p.id, 'no', e.target.value)} 
-                          className="w-14 md:w-20 h-7 px-2 rounded bg-white border border-slate-300 text-[10px] text-slate-900 print:bg-transparent print:border-b print:border-slate-300 print:text-black print:rounded-none" 
-                        />
-                        <input 
-                          type="number" 
-                          min="1" 
-                          value={p.qty} 
-                          onChange={(e) => handlePartChange(p.id, 'qty', parseInt(e.target.value, 10) || 1)} 
-                          className="w-10 h-7 px-1 rounded bg-white border border-slate-300 text-[10px] text-slate-900 text-center print:bg-transparent print:border-b print:border-slate-300 print:text-black print:rounded-none" 
-                        />
-                        <button type="button" onClick={() => removePartRow(p.id)} className="h-7 w-7 text-xs text-slate-500 hover:text-red-500 print:hidden">✕</button>
-                      </div>
-                    ))}
+                  <div className="overflow-x-auto w-full">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-200 print:border-slate-300">
+                          <th className="pb-1 font-mono text-[9px] text-slate-400 uppercase tracking-wider w-[50%] print:text-black">Description</th>
+                          <th className="pb-1 font-mono text-[9px] text-slate-400 uppercase tracking-wider w-[30%] print:text-black">Part #</th>
+                          <th className="pb-1 font-mono text-[9px] text-slate-400 uppercase tracking-wider w-[15%] text-center print:text-black">Qty</th>
+                          <th className="pb-1 w-[5%] print:hidden"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 print:divide-slate-300">
+                        {parts.map((p) => (
+                          <tr key={p.id} className="hover:bg-slate-50/50 print:hover:bg-transparent">
+                            <td className="py-1 pr-2">
+                              <input 
+                                type="text" 
+                                placeholder="Description" 
+                                value={p.desc || ''} 
+                                onChange={(e) => handlePartChange(p.id, 'desc', e.target.value)} 
+                                className="w-full h-6 px-1 bg-transparent border-none text-xs text-slate-900 focus:outline-none print:text-black" 
+                              />
+                            </td>
+                            <td className="py-1 pr-2">
+                              <input 
+                                type="text" 
+                                placeholder="Part #" 
+                                value={p.no || ''} 
+                                onChange={(e) => handlePartChange(p.id, 'no', e.target.value)} 
+                                className="w-full h-6 px-1 bg-transparent border-none text-xs text-slate-900 focus:outline-none print:text-black font-mono" 
+                              />
+                            </td>
+                            <td className="py-1">
+                              <input 
+                                type="number" 
+                                min="1" 
+                                value={p.qty} 
+                                onChange={(e) => handlePartChange(p.id, 'qty', parseInt(e.target.value, 10) || 1)} 
+                                className="w-full h-6 px-1 bg-transparent border-none text-xs text-slate-900 text-center focus:outline-none print:text-black" 
+                              />
+                            </td>
+                            <td className="py-1 text-center print:hidden">
+                              <button type="button" onClick={() => removePartRow(p.id)} className="text-slate-400 hover:text-red-500 transition-colors cursor-pointer text-[10px]">✕</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                  <button type="button" onClick={addPartRow} className="text-[10px] font-mono text-primary print:hidden mt-1 self-start">+ Add Part</button>
+                  <button type="button" onClick={addPartRow} className="text-[10px] font-mono text-primary print:hidden mt-2 self-start hover:underline">+ Add Part</button>
                 </fieldset>
 
                 <fieldset className="rounded-lg border border-slate-200 bg-white p-3 print:p-2 print:border-slate-400 print:bg-transparent flex flex-col">
@@ -709,18 +707,17 @@ export default function App() {
                   <div className="flex-1 flex flex-col w-full relative">
                     <textarea 
                       name="remarks" 
-                      maxLength={500}
+                      maxLength={255}
                       value={remarks}
                       onChange={(e) => setRemarks(e.target.value)}
-                      className="flex-1 w-full px-2 py-1 rounded-md resize-none bg-white border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-primary print:hidden min-h-[4.5rem]" 
+                      className="w-full h-[72px] px-2 py-1 rounded-md resize-none overflow-hidden bg-white border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-primary print:hidden" 
                       placeholder="Remarks / Observations..."
-                      rows={3}
                     ></textarea>
-                    <div className="hidden print:block text-[11px] text-slate-900 font-sans whitespace-pre-wrap min-h-[4.5rem] border-b border-slate-300 pb-1">
+                    <div className="hidden print:block text-[11px] text-slate-900 font-sans whitespace-pre-wrap h-[72px] border-b border-slate-300 pb-1 overflow-hidden">
                       {remarks || <span className="text-slate-400 italic">No remarks.</span>}
                     </div>
                     <div className="text-[9px] text-slate-400 text-right font-mono mt-0.5 print:hidden">
-                      {remarks.length}/500 chars
+                      {remarks.length}/255 chars
                     </div>
                   </div>
                 </fieldset>
@@ -735,7 +732,7 @@ export default function App() {
               {/* Sleek Simple Thank You Footer */}
               <div className="text-center py-2 print:py-1 w-full border-t border-slate-100 print:border-slate-300 mt-1">
                 <p className="text-[10px] font-bold text-slate-500 italic tracking-wider print:text-black font-mono">
-                  Thank you for your business! We appreciate your trust in Hi-Tech Fuel Automate Ltd.
+                  Thank you for your business!
                 </p>
               </div>
 
@@ -756,7 +753,7 @@ export default function App() {
                 onClick={handleSaveAndPrint} 
                 className="px-8 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm shadow-md shadow-blue-500/20 transition-all flex items-center gap-2 hover:scale-[1.01] active:scale-[0.99] focus:outline-none cursor-pointer"
               >
-                <span>💾 {isSaved ? 'Update & Re-Print' : 'Save as PDF'}</span>
+                <span>💾 Save as PDF</span>
               </button>
             </div>
             
